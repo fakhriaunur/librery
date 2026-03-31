@@ -10,7 +10,7 @@ ratatui = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "time"] }
 utoipa = { workspace = true }
-utoipa-swagger-ui = { workspace = true }
+utoipa-swagger-ui = { workspace = true, features = ["axum"] }
 librery-core = { path = "../librery-core" }
 bytes = "1"
 h3 = "0.0.8"

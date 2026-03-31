@@ -1,0 +1,9 @@
+[package]
+name = "librery-tui"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+librery-core = { path = "../librery-core" }
+ratatui.workspace = true
+serde = { version = "1", features = ["derive"] }

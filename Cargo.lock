@@ -1187,6 +1187,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "librery-tui"
+version = "0.1.0"
+dependencies = [
+ "librery-core",
+ "ratatui",
+ "serde",
+]
+
+[[package]]
 name = "libsqlite3-sys"
 version = "0.30.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,5 +1,5 @@
 [workspace]
-members = ["librery-core", "librery-shell"]
+members = ["librery-core", "librery-shell", "librery-tui"]
 resolver = "2"
 
 [workspace.package]

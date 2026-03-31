@@ -1,0 +1,45 @@
+
+Librery: Strategic & Tactical Domain-Driven Design
+1. Strategic DDD: Bounded Contexts & Federation
+Librery avoids the complexity of Multi-Tenancy database schemas. Every instance considers itself the Local authority.
+Federation: External branches or university partners are treated as FederatedPeers. Inter-library interactions occur via standard Open Host Service (OHS) protocols over HTTP/3.
+Core Context: Circulation (Event-Sourced Ledger).
+Supporting Contexts: Cataloging (CRDTs), Patron Management, Financials.
+Anti-Corruption Layer (ACL): External integrations (SIP2 Kiosks, Legacy database dumps) are mediated strictly by WASM Plugins to protect the internal models.
+2. Tactical DDD: The Circulation Core
+The Circulation Core is modeled as an Event-Sourced Aggregate.
+Primitives & State Machine
+pub struct ItemId(pub Uuid);
+pub struct PatronId(pub Uuid);
+
+pub enum ItemStatus {
+    Available { at_branch: BranchId },
+    CheckedOut { to_patron: PatronId, due_date: DateTime<Utc> },
+    OnHoldShelf { for_patron: PatronId, expires_at: DateTime<Utc> },
+    Lost,
+}
+
+
+Commands, Events & the Rules Engine
+Commands (Intents) are injected with non-deterministic time by the Shell. Events (Facts) are appended to the ledger.
+pub enum ItemCommand {
+    CheckOut { patron_id: PatronId, checkout_time: DateTime<Utc>, due_date: DateTime<Utc> }
+}
+
+pub enum ItemEvent {
+    ItemCheckedOut { item_id: ItemId, patron_id: PatronId, timestamp: DateTime<Utc> }
+}
+
+impl ItemAggregate {
+    // 1. Rebuilds state from the immutable SQLx Ledger
+    pub fn rebuild(id: ItemId, events: &[ItemEvent]) -> Self { /* ... */ }
+    
+    // 2. Pure logic validation. Checks Capabilities (Biscuit) and physical state.
+    pub fn process(&self, ctx: &CommandContext, command: ItemCommand) -> Result<Vec<ItemEvent>, DomainError> {
+         // ... e.g., Return Err(ItemAlreadyCheckedOut) or Ok(vec![ItemEvent::ItemCheckedOut])
+    }
+}
+
+
+Authorization Context (Biscuit Tokens)
+The Core is ignorant of cryptography. The Shell verifies the Biscuit Token (via an HttpOnly cookie or offline public key) and injects the deterministic capabilities (e.g., Capability::IssueLoans) into the CommandContext.

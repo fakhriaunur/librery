@@ -1,0 +1,15 @@
+
+Librery: Data Layer, Plugins & Infrastructure
+1. The Data Layer (SQLx & Embedded Storage)
+Librery explicitly rejects external NoSQL daemons (Redis, MongoDB, Elasticsearch) to maintain its single-binary deployment mandate.
+Primary Ledger: SQLx interfacing with PostgreSQL (for consortia) or SQLite (for edge nodes). SQLx provides zero-overhead, compile-time query verification. Event payloads are stored in native JSONB/BLOB columns.
+Read Model (NoSQL alternative): Tantivy. An embedded pure-Rust full-text search engine that ingests the SQLx ledger to provide fuzzy-matching OPAC queries.
+Ephemeral State: Moka (pure Rust) acts as an embedded concurrent cache, negating the need for Redis.
+2. The Plugin Marketplace (Extism WASM)
+Integration: Extism is embedded into the Axum shell to execute WebAssembly plugins.
+The Anti-Corruption Layer: Official WASM plugins (e.g., slims-migrator.wasm, marc21-converter.wasm) act as strict format converters, translating messy legacy data into pure Librery commands safely.
+Zero-Trust Security: Community plugins execute in a highly restrictive WASM sandbox. Network and ledger access are governed by explicitly defined manifest capabilities.
+3. Deployment & Edge Infrastructure
+IaC Tool: OpenTofu (Declarative, open-source infrastructure management).
+Containerization: Podman (Daemonless, rootless container execution for edge security).
+Orchestration: MicroShift (Red Hat's lightweight edge Kubernetes, avoiding the heavy memory bloat of standard K8s or local-only kind clusters).

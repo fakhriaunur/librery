@@ -1,0 +1,11 @@
+/home/pahri/workspace/work/librery/target/debug/deps/tinyvec-ca2705da1ec26c84.d: /home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/lib.rs /home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/array.rs /home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/array/const_generic_impl.rs /home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/arrayvec.rs /home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/arrayvec_drain.rs /home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/slicevec.rs /home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/tinyvec.rs
+
+/home/pahri/workspace/work/librery/target/debug/deps/libtinyvec-ca2705da1ec26c84.rmeta: /home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/lib.rs /home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/array.rs /home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/array/const_generic_impl.rs /home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/arrayvec.rs /home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/arrayvec_drain.rs /home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/slicevec.rs /home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/tinyvec.rs
+
+/home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/lib.rs:
+/home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/array.rs:
+/home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/array/const_generic_impl.rs:
+/home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/arrayvec.rs:
+/home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/arrayvec_drain.rs:
+/home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/slicevec.rs:
+/home/pahri/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tinyvec-1.11.0/src/tinyvec.rs:

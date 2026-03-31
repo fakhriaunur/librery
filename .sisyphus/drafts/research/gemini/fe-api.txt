@@ -1,0 +1,25 @@
+
+Librery: Frontend Ecosystem & API Contracts
+1. API Contract Strategy (utoipa)
+Librery strictly enforces an "API Code-First" approach to prevent frontend/backend drift. OpenAPI 3.1 specifications are generated at compile time from the Rust structs via utoipa.
+2. Frontend Taxonomy & Network Clients
+Librery rejects unified frameworks in favor of purpose-built clients, trimming all runtime bloat to deliver pure performance.
+A. The Patron Experience (SvelteKit)
+Architecture: Pure Reactive Shell (RS).
+Network Client (Browser Native): SvelteKit relies on the browser's native fetch API. The browser engine (Chromium/WebKit) automatically handles the upgrade from HTTP/2 to HTTP/3 upon receiving the Alt-Svc header from Axum. Zero extra client-side JavaScript is required.
+Auth: Stateless Biscuit capabilities stored in HttpOnly, Secure cookies.
+B. The Universal Staff App (Flutter + Rust FRB)
+Architecture: Full FCRS (Functional Core, Reactive Shell).
+Network Client (Rust reqwest via FFI): Instead of relying on Dart's native HttpClient (which struggles with native HTTP/3 support), the Flutter app routes its network calls through the embedded Rust core. The core uses the reqwest crate (compiled with HTTP/3 QUIC features enabled) to talk to the Axum backend. This guarantees maximum UDP performance while falling back to HTTP/2 transparently if the local school's firewall blocks UDP.
+Execution: Flutter manages the UI (fl_chart). The librery-core Rust crate handles CRDT merges and QUIC networking.
+C. The Headless Terminal (Ratatui)
+Architecture: Full FCIS.
+Network Client: Native Rust reqwest (HTTP/3 enabled) connecting to the federated Axum server, or direct SQLite/PostgreSQL connection for local administration.
+3. Frontend Testing Strategies
+To ensure the UI is as resilient as the Functional Core, rigorous testing frameworks are applied to the frontends.
+SvelteKit (Patron App) Testing
+Component Testing (vitest + @testing-library/svelte): Isolates individual UI components (e.g., the "Place Hold" button). Asserts that the component renders correctly given a mocked OpenAPI response.
+End-to-End (E2E) Testing (Playwright): Spins up a headless Chromium browser. Automates the full user journey (Search -> Login -> Borrow) against a test instance of the Axum backend, proving the HTTP/3 cookies and UI flows function in reality.
+Flutter (Staff App) Testing
+Widget Testing (flutter test): Verifies that the UI reacts correctly to state changes emitted by the embedded Rust core (e.g., ensuring a chart redraws when offline Automerge data changes).
+Integration Testing (integration_test): Runs on actual iOS/Android simulators or physical devices. Proves the barcode scanner camera plugin, the Rust FFI boundary, and the SQLite local database operate harmoniously.

@@ -1,0 +1,38 @@
+Librery: Build System & Infrastructure Specification
+1. Core Philosophy: The Lean Toolchain
+Librery's build and deployment toolchain is designed to be accessible to open-source contributors while maintaining enterprise-grade predictability. It actively avoids over-engineering in favor of standard, community-accepted tools orchestrated cleanly.
+2. The Build System & Task Runner
+Command Runner: just (Justfile)
+Acts as the single entry point for all developer commands (e.g., just build, just db-migrate, just generate-schema, just build-staff-app).
+Rust Ecosystem: cargo (Workspaces)
+Used for the Functional Core, Axum Shell, and Ratatui TUI.
+Web Ecosystem: pnpm (Workspaces)
+Used for the SvelteKit OPAC frontend. pnpm ensures fast, disk-space-efficient dependency management.
+Mobile/Desktop Ecosystem: flutter & flutter_rust_bridge_codegen
+Used for the Universal Staff App. The Justfile orchestrates the critical pre-build step: running flutter_rust_bridge_codegen to generate the exact Dart bindings from the Rust core before executing flutter build.
+3. Infrastructure as Code (IaC)
+Tool: OpenTofu
+Librery utilizes OpenTofu for all declarative infrastructure definitions, ensuring an entirely open-source deployment pipeline free from proprietary licensing constraints.
+Used for provisioning federated cloud instances and managing DNS/network routing for multi-branch setups.
+4. Containerization: Podman
+Engine: Podman
+Chosen over Docker for edge deployments due to its daemonless, rootless architecture. This dramatically reduces the security attack surface and system resource overhead, perfectly aligning with Librery's single-binary, low-footprint mandate.
+5. Local & Edge Orchestration: MicroShift
+Target: Edge Devices & Resource-Constrained Environments (e.g., local library servers).
+Orchestrator: MicroShift
+Instead of heavy solutions like standard Kubernetes or development-only tools like kind, Librery recommends MicroShift.
+MicroShift strips away cloud-provider bloat, delivering a minimal Kubernetes API capable of running cleanly on older hardware or edge devices.
+Combined with OpenTofu, it allows regional IT administrators to deploy Librery via standard manifests (Deployment, Service, Ingress).
+6. The Deployment Artifacts
+Because of the hybrid frontend strategy, the CI/CD pipeline produces two distinct categories of artifacts:
+A. The Server Artifact (The Edge Node)
+A minimal, scratch-based OCI container image managed by Podman/MicroShift containing:
+The statically compiled Rust Axum binary (Librery Imperative Shell + Core).
+The Extism WASM runtime (embedded).
+The pre-compiled SvelteKit OPAC static assets (served by Axum).
+Operational Result: A single container requiring minimal RAM, serving HTTP/3 QUIC, with zero external daemons aside from PostgreSQL (or embedded SQLite).
+B. The Client Artifacts (The Staff Apps)
+Compiled binaries produced via the Flutter toolchain, with the pure Rust librery-core natively embedded inside them:
+Android: .apk and .aab (App Bundle) for library floor staff scanners.
+iOS: .ipa for Apple-based library hardware.
+Desktop: Native executables (.exe, .dmg, .deb) for the circulation desk operators.

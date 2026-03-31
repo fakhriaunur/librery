@@ -1,0 +1,49 @@
+Librery: Project Milestones & Tracer Bullets
+1. Core Philosophy: Tracer Bullets
+Instead of building 100% of the database, then 100% of the backend, and then 100% of the frontend, Librery is developed in vertical slices. We fire a "tracer bullet" through the entire stack to validate the FCIS architecture, CQRS, network protocols, and Monorepo setup early.
+Every phase enforces the Anti-Duplication Mandate: Domain logic is written once in Rust.
+Phase 0: The First Tracer Bullet & Network Base
+Goal: Prove the Functional Core, Axum Shell, SQLx Ledger, HTTP/3 transport, and Ratatui TUI can communicate seamlessly.
+The Slice: A librarian checks out a single, hardcoded book to a single patron via the terminal.
+Milestone 0.1 (Pure Core): Implement ItemAggregate and CheckOut command. Use Chicago-style TDD and proptest to mathematically prove the physical invariants.
+Milestone 0.2 (Shell/DB/Network): * Setup SQLite via SQLx. Prove the ledger append works using sqlx::test (isolated DB testing).
+Build the Axum POST /api/v1/checkout route.
+Configure the server to bind to TCP (hyper for HTTP/1.1 & HTTP/2 fallbacks) and UDP (quinn for HTTP/3), injecting the Alt-Svc: h3="..." header.
+Milestone 0.3 (Contract): Add utoipa to generate the OpenAPI 3.1 schema automatically.
+Milestone 0.4 (TUI & Client): Build a hyper-minimal ratatui screen. Use the native Rust reqwest crate (compiled with HTTP/3 QUIC features) to hit the Axum backend.
+Success Criteria: Typing an ID in the terminal sends an HTTP/3 request, resulting in an immutable ItemCheckedOut event stored in the SQLite ledger.
+Phase 1: Expanding the Ledger & CQRS Search
+Goal: Complete the Circulation state machine and project it into the search index.
+Milestone 1.1: Complete ItemAggregate (Check-in, Renew, Lost, Holds) with cargo-mutants (Mutation Testing) to guarantee test suite strength.
+Milestone 1.2: Implement the Tokio MPSC Actor channel in Axum for lock-free, strict-ordered event writing.
+Milestone 1.3: Embed the Tantivy search engine. Write the background worker that projects SQLx inserts into Tantivy.
+Phase 2: The Unified Patron App
+Goal: Deliver a lightning-fast web experience for the public, unifying discovery and account management.
+Focus: SvelteKit, OpenAPI, Biscuit Auth, and Browser Networking.
+Milestone 2.1: Set up SvelteKit. Automate openapi-generator-cli via the Justfile.
+Milestone 2.2: Build the OPAC search bar wired to Tantivy.
+Network Implementation: Utilize the browser's native fetch API, allowing Chromium/WebKit to seamlessly upgrade from HTTP/2 to HTTP/3 via the backend's Alt-Svc header.
+Milestone 2.3: Implement the Auth flow. Axum issues a Biscuit Token inside an HttpOnly, Secure cookie. Build the Patron Dashboard as a protected route.
+QA Gate (Component & E2E): * Write vitest + @testing-library/svelte component tests for the UI.
+Write a Playwright E2E script proving a patron can search Tantivy, log in securely, and place a hold using the generated TypeScript SDK.
+Phase 3: The Universal Staff App & Offline CRDTs (Full FCRS)
+Goal: Empower librarians with rich data visualization and offline-capable cataloging.
+Focus: Flutter, flutter_rust_bridge (FRB), Automerge, and Rust-driven Networking.
+Milestone 3.1: Initialize the Flutter workspace. Set up FRB to natively compile librery-core into the Dart environment.
+Milestone 3.2 (Rust-Driven Networking): Route all Flutter API calls through the embedded Rust core. The core uses reqwest to guarantee HTTP/3 UDP multiplexing, falling back to HTTP/2 if the local network blocks UDP, bypassing Dart's HTTP limitations.
+Milestone 3.3: Implement local SQLite storage within the Rust core to queue offline Circulation commands. Integrate automerge and autosurgeon for offline metadata editing.
+Milestone 3.4: Build the executive dashboard in Flutter (fl_chart) to visualize the CQRS read models.
+QA Gate (Widget & Integration): * Write Flutter Widget Tests to verify chart rendering based on mocked offline state.
+Write Flutter Integration Tests (on simulator/device) to prove the offline command queue correctly syncs to Axum over an HTTP/3 connection when network access is restored.
+Phase 4: The Extensibility Boundary (WASM)
+Goal: Open the system to legacy migrations without compromising the core.
+Focus: Extism and the Anti-Corruption Layer.
+Milestone 4.1: Embed the Extism WASM runtime into the Axum shell via the PluginRuntime trait.
+Milestone 4.2: Build the first official plugin: slims-migrator.wasm. Prove that legacy MySQL data can be safely converted into pure Librery events.
+Milestone 4.3: Implement Capability-based security (manifests) for sideloaded plugins.
+Phase 5: Edge Deployment & Load Testing
+Goal: Real-world infrastructural stress testing in constrained environments.
+Focus: OpenTofu, Podman, MicroShift, and Chaos Testing.
+Milestone 5.1: Write the Containerfile to build the single, static Librery binary (Axum + Extism + SvelteKit static assets).
+Milestone 5.2: Use OpenTofu to provision a local MicroShift edge cluster.
+QA Gate (Load Testing): Deploy via Podman. Run k6 load testing specifically targeting the HTTP/3 UDP multiplexing and MPSC checkout queues to prove the single binary can handle massive concurrent school-hour traffic without memory panics or head-of-line blocking.

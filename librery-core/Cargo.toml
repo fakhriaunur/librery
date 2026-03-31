@@ -1,0 +1,12 @@
+[package]
+name = "librery-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+sqlx = { workspace = true }
+utoipa = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

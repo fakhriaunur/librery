@@ -1,0 +1,8 @@
+
+Librery: Engineering Ops, Testing & Roadmap
+1. Testing Strategy: Chicago vs. London
+The Functional Core: Chicago-Style TDD (State-based). Pure state verification using proptest (fuzzing domain invariants) and cargo-mutants (Mutation Testing).
+The Imperative Shell: London-Style TDD (Behavior-based). Mocking external APIs and verifying database ledger appends via sqlx::test.
+2. Frontend QA Strategy
+Patron App: Component testing via vitest. Full browser journey validation via Playwright (E2E).
+Staff App: UI component validation via Flutter Widget tests. On-device hardware/FFI validation via Flutter Integration tests.

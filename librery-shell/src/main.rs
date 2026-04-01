@@ -22,7 +22,7 @@ use librery_shell::api::auth::login::{login, LoginRequest, LoginResponse};
 use librery_shell::api::auth::login::__path_login;
 use librery_shell::api::auth::logout::{logout, LogoutResponse};
 use librery_shell::api::auth::logout::__path_logout;
-use librery_shell::api::patrons::{get_patron_loans, get_patron_holds, LoansResponse, HoldsResponse};
+use librery_shell::api::patrons::{get_patron_loans, get_patron_holds, LoanResponse, LoansResponse, HoldResponse, HoldsResponse};
 use librery_shell::api::patrons::__path_get_patron_loans;
 use librery_shell::api::patrons::__path_get_patron_holds;
 use librery_shell::middleware::auth::auth_middleware;
@@ -73,7 +73,9 @@ struct SearchResponse {
         LoginRequest,
         LoginResponse,
         LogoutResponse,
+        LoanResponse,
         LoansResponse,
+        HoldResponse,
         HoldsResponse
     )),
     tags((name = "api", description = "Library API"))

@@ -6,6 +6,7 @@ pub mod api;
 pub mod middleware;
 pub mod search;
 pub mod patron_credentials_repository;
+pub mod item_repository;
 
 use std::sync::Arc;
 
@@ -18,6 +19,7 @@ use crate::search::SearchIndex;
 pub struct AppState {
     pub search_index: Arc<SearchIndex>,
     pub credentials_repo: Arc<dyn PatronCredentialsRepository>,
+    pub circulation_repo: Arc<dyn CirculationRepository>,
     pub biscuit_keypair: Arc<KeyPair>,
 }
 

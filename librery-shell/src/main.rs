@@ -22,9 +22,13 @@ use librery_shell::api::auth::login::{login, LoginRequest, LoginResponse};
 use librery_shell::api::auth::login::__path_login;
 use librery_shell::api::auth::logout::{logout, LogoutResponse};
 use librery_shell::api::auth::logout::__path_logout;
+use librery_shell::api::patrons::{get_patron_loans, get_patron_holds, LoansResponse, HoldsResponse};
+use librery_shell::api::patrons::__path_get_patron_loans;
+use librery_shell::api::patrons::__path_get_patron_holds;
 use librery_shell::middleware::auth::auth_middleware;
 use librery_shell::patron_credentials_repository::SqlitePatronCredentialsRepository;
 use librery_shell::search::SearchIndex;
+use librery_shell::SqliteCirculationRepository;
 use librery_shell::AppState;
 
 #[derive(Deserialize, Serialize, ToSchema)]
@@ -59,7 +63,7 @@ struct SearchResponse {
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(checkout, search_items, login, logout),
+    paths(checkout, search_items, login, logout, get_patron_loans, get_patron_holds),
     components(schemas(
         CheckoutRequest,
         SearchParams,
@@ -68,7 +72,9 @@ struct SearchResponse {
         SearchResponse,
         LoginRequest,
         LoginResponse,
-        LogoutResponse
+        LogoutResponse,
+        LoansResponse,
+        HoldsResponse
     )),
     tags((name = "api", description = "Library API"))
 )]
@@ -80,17 +86,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let search_index = Arc::new(SearchIndex::new()?);
     let credentials_repo = Arc::new(SqlitePatronCredentialsRepository::connect("sqlite:librery.db").await?);
+    let circulation_repo = Arc::new(SqliteCirculationRepository::connect("sqlite:librery.db").await?);
     let biscuit_keypair = Arc::new(KeyPair::new());
 
     let state = AppState {
         search_index,
         credentials_repo,
+        circulation_repo,
         biscuit_keypair,
     };
 
     let protected_routes = Router::new()
         .route("/api/v1/checkout", post(checkout))
         .route("/api/v1/search", get(search_items))
+        .route("/api/v1/patrons/{id}/loans", get(get_patron_loans))
+        .route("/api/v1/patrons/{id}/holds", get(get_patron_holds))
         .layer(axum::middleware::from_fn(auth_middleware));
 
     let app = Router::new()

@@ -54,6 +54,9 @@ struct SearchResultResponse {
     event_type: String,
     timestamp: i64,
     indexed_at: i64,
+    title: Option<String>,
+    author: Option<String>,
+    isbn: Option<String>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -186,6 +189,9 @@ async fn search_items(
                         event_type: r.event_type,
                         timestamp: r.timestamp,
                         indexed_at,
+                        title: r.title,
+                        author: r.author,
+                        isbn: r.isbn,
                     })
                     .collect(),
             };

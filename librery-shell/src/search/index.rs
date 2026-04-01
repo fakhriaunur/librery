@@ -276,11 +276,29 @@ impl SearchIndex {
                 .and_then(|v| v.as_i64())
                 .unwrap_or(0);
 
+            let title = retrieved_doc
+                .get_first(self.title_field)
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
+            let author = retrieved_doc
+                .get_first(self.author_field)
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
+            let isbn = retrieved_doc
+                .get_first(self.isbn_field)
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
             results.push(SearchResult {
                 item_id,
                 patron_id,
                 event_type,
                 timestamp,
+                title,
+                author,
+                isbn,
             });
         }
 
@@ -304,6 +322,9 @@ pub struct SearchResult {
     pub patron_id: String,
     pub event_type: String,
     pub timestamp: i64,
+    pub title: Option<String>,
+    pub author: Option<String>,
+    pub isbn: Option<String>,
 }
 
 #[cfg(test)]

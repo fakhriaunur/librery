@@ -1,5 +1,5 @@
 use librery_core::domain::BibliographicRecord;
-use librery_core::CirculationEvent;
+use librery_core::{CirculationEvent, Item};
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tantivy::schema::{Schema, Value, INDEXED, STORED, STRING, TEXT};
@@ -89,6 +89,22 @@ impl SearchIndex {
         if let Some(ref publisher) = record.publisher {
             doc.add_text(self.publisher_field, publisher);
         }
+
+        writer.add_document(doc)?;
+        writer.commit()?;
+
+        Ok(())
+    }
+
+    /// Indexes an item for catalog search.
+    ///
+    /// The document becomes searchable after the next commit.
+    pub fn index_item(&self, item: &Item) -> tantivy::Result<()> {
+        let mut writer: IndexWriter = self.index.writer(50_000_000)?;
+
+        let mut doc = TantivyDocument::new();
+        doc.add_text(self.item_id_field, &item.id.0);
+        doc.add_text(self.barcode_field, &item.barcode);
 
         writer.add_document(doc)?;
         writer.commit()?;

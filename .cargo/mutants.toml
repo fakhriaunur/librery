@@ -1,0 +1,6 @@
+timeout_multiplier = 2.0
+minimum_test_timeout = 60
+test_package = ["librery-core"]
+additional_cargo_test_args = ["--lib"]
+exclude_globs = ["tests/**"]
+exclude_re = ["^impl.*Debug.*fmt$", "^impl.*Display.*fmt$"]

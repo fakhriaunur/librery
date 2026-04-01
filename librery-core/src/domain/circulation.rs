@@ -16,6 +16,50 @@ pub struct CheckoutCommand {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CheckInCommand {
+    pub item_id: ItemId,
+    pub patron_id: ActorId,
+    pub timestamp: i64,
+    pub correlation_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RenewCommand {
+    pub item_id: ItemId,
+    pub patron_id: ActorId,
+    pub timestamp: i64,
+    pub correlation_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MarkLostCommand {
+    pub item_id: ItemId,
+    pub timestamp: i64,
+    pub correlation_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HoldCommand {
+    Place {
+        item_id: ItemId,
+        patron_id: ActorId,
+        timestamp: i64,
+        correlation_id: String,
+    },
+    Cancel {
+        item_id: ItemId,
+        timestamp: i64,
+        correlation_id: String,
+    },
+    Fulfill {
+        item_id: ItemId,
+        patron_id: ActorId,
+        timestamp: i64,
+        correlation_id: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CirculationEvent {
     ItemCheckedOut {
         item_id: ItemId,
@@ -41,6 +85,22 @@ pub enum CirculationEvent {
         timestamp: i64,
         correlation_id: String,
     },
+    HoldCancelled {
+        item_id: ItemId,
+        timestamp: i64,
+        correlation_id: String,
+    },
+    HoldFulfilled {
+        item_id: ItemId,
+        patron_id: ActorId,
+        timestamp: i64,
+        correlation_id: String,
+    },
+    ItemLost {
+        item_id: ItemId,
+        timestamp: i64,
+        correlation_id: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,6 +109,12 @@ pub enum CheckoutError {
     ItemMismatch,
     PatronMismatch,
     PatronBlocked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HoldError {
+    ItemMismatch,
+    ItemNotOnHold,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,6 +156,128 @@ impl ItemAggregate {
         }])
     }
 
+    pub fn process_checkin(
+        item: &Item,
+        command: CheckInCommand,
+    ) -> Result<CirculationEvent, CheckoutError> {
+        if item.id != command.item_id {
+            return Err(CheckoutError::ItemMismatch);
+        }
+
+        if item.status != ItemStatus::CheckedOut {
+            return Err(CheckoutError::ItemNotAvailable);
+        }
+
+        Ok(CirculationEvent::ItemReturned {
+            item_id: command.item_id,
+            patron_id: command.patron_id,
+            timestamp: command.timestamp,
+            correlation_id: command.correlation_id,
+        })
+    }
+
+    pub fn process_renew(
+        item: &Item,
+        command: RenewCommand,
+    ) -> Result<CirculationEvent, CheckoutError> {
+        if item.id != command.item_id {
+            return Err(CheckoutError::ItemMismatch);
+        }
+
+        if item.status != ItemStatus::CheckedOut {
+            return Err(CheckoutError::ItemNotAvailable);
+        }
+
+        Ok(CirculationEvent::ItemRenewed {
+            item_id: command.item_id,
+            patron_id: command.patron_id,
+            timestamp: command.timestamp,
+            correlation_id: command.correlation_id,
+        })
+    }
+
+    pub fn process_mark_lost(
+        item: &Item,
+        command: MarkLostCommand,
+    ) -> Result<CirculationEvent, CheckoutError> {
+        if item.id != command.item_id {
+            return Err(CheckoutError::ItemMismatch);
+        }
+
+        Ok(CirculationEvent::ItemLost {
+            item_id: command.item_id,
+            timestamp: command.timestamp,
+            correlation_id: command.correlation_id,
+        })
+    }
+
+    pub fn process_hold(
+        item: &Item,
+        _patron: &Actor,
+        command: HoldCommand,
+    ) -> Result<CirculationEvent, HoldError> {
+        match command {
+            HoldCommand::Place {
+                item_id,
+                patron_id,
+                timestamp,
+                correlation_id,
+            } => {
+                if item.id != item_id {
+                    return Err(HoldError::ItemMismatch);
+                }
+                if item.status != ItemStatus::Available {
+                    return Err(HoldError::ItemNotOnHold);
+                }
+
+                Ok(CirculationEvent::HoldPlaced {
+                    item_id,
+                    patron_id,
+                    timestamp,
+                    correlation_id,
+                })
+            }
+            HoldCommand::Cancel {
+                item_id,
+                timestamp,
+                correlation_id,
+            } => {
+                if item.id != item_id {
+                    return Err(HoldError::ItemMismatch);
+                }
+                if item.status != ItemStatus::OnHoldShelf {
+                    return Err(HoldError::ItemNotOnHold);
+                }
+
+                Ok(CirculationEvent::HoldCancelled {
+                    item_id,
+                    timestamp,
+                    correlation_id,
+                })
+            }
+            HoldCommand::Fulfill {
+                item_id,
+                patron_id,
+                timestamp,
+                correlation_id,
+            } => {
+                if item.id != item_id {
+                    return Err(HoldError::ItemMismatch);
+                }
+                if item.status != ItemStatus::OnHoldShelf {
+                    return Err(HoldError::ItemNotOnHold);
+                }
+
+                Ok(CirculationEvent::ItemCheckedOut {
+                    item_id,
+                    patron_id,
+                    timestamp,
+                    correlation_id,
+                })
+            }
+        }
+    }
+
     pub fn rebuild(events: &[CirculationEvent]) -> Self {
         let mut aggregate = Self {
             item_id: None,
@@ -118,6 +306,12 @@ impl ItemAggregate {
                     patron_id,
                     timestamp,
                     correlation_id,
+                }
+                | CirculationEvent::HoldFulfilled {
+                    item_id,
+                    patron_id,
+                    timestamp,
+                    correlation_id,
                 } => {
                     aggregate.item_id = Some(item_id.clone());
                     aggregate.checked_out_to = Some(patron_id.clone());
@@ -125,7 +319,8 @@ impl ItemAggregate {
                         CirculationEvent::ItemCheckedOut { .. } => ItemStatus::CheckedOut,
                         CirculationEvent::ItemRenewed { .. } => ItemStatus::CheckedOut,
                         CirculationEvent::HoldPlaced { .. } => ItemStatus::OnHoldShelf,
-                        CirculationEvent::ItemReturned { .. } => ItemStatus::Available,
+                        CirculationEvent::HoldFulfilled { .. } => ItemStatus::CheckedOut,
+                        _ => unreachable!(),
                     };
                     aggregate.last_timestamp = Some(*timestamp);
                     aggregate.last_correlation_id = Some(correlation_id.clone());
@@ -135,9 +330,25 @@ impl ItemAggregate {
                     patron_id: _,
                     timestamp,
                     correlation_id,
+                }
+                | CirculationEvent::HoldCancelled {
+                    item_id,
+                    timestamp,
+                    correlation_id,
                 } => {
                     aggregate.item_id = Some(item_id.clone());
                     aggregate.status = ItemStatus::Available;
+                    aggregate.checked_out_to = None;
+                    aggregate.last_timestamp = Some(*timestamp);
+                    aggregate.last_correlation_id = Some(correlation_id.clone());
+                }
+                CirculationEvent::ItemLost {
+                    item_id,
+                    timestamp,
+                    correlation_id,
+                } => {
+                    aggregate.item_id = Some(item_id.clone());
+                    aggregate.status = ItemStatus::Lost;
                     aggregate.checked_out_to = None;
                     aggregate.last_timestamp = Some(*timestamp);
                     aggregate.last_correlation_id = Some(correlation_id.clone());
@@ -306,6 +517,122 @@ mod tests {
         }
     }
 
+    impl Arbitrary for CheckInCommand {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+            (
+                any::<ItemId>(),
+                any::<ActorId>(),
+                any::<i64>(),
+                "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+            )
+                .prop_map(
+                    |(item_id, patron_id, timestamp, correlation_id)| CheckInCommand {
+                        item_id,
+                        patron_id,
+                        timestamp,
+                        correlation_id,
+                    },
+                )
+                .boxed()
+        }
+    }
+
+    impl Arbitrary for RenewCommand {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+            (
+                any::<ItemId>(),
+                any::<ActorId>(),
+                any::<i64>(),
+                "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+            )
+                .prop_map(
+                    |(item_id, patron_id, timestamp, correlation_id)| RenewCommand {
+                        item_id,
+                        patron_id,
+                        timestamp,
+                        correlation_id,
+                    },
+                )
+                .boxed()
+        }
+    }
+
+    impl Arbitrary for MarkLostCommand {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+            (
+                any::<ItemId>(),
+                any::<i64>(),
+                "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+            )
+                .prop_map(|(item_id, timestamp, correlation_id)| MarkLostCommand {
+                    item_id,
+                    timestamp,
+                    correlation_id,
+                })
+                .boxed()
+        }
+    }
+
+    impl Arbitrary for HoldCommand {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+            prop_oneof![
+                (
+                    any::<ItemId>(),
+                    any::<ActorId>(),
+                    any::<i64>(),
+                    "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+                )
+                    .prop_map(|(item_id, patron_id, timestamp, correlation_id)| {
+                        HoldCommand::Place {
+                            item_id,
+                            patron_id,
+                            timestamp,
+                            correlation_id,
+                        }
+                    }),
+                (
+                    any::<ItemId>(),
+                    any::<i64>(),
+                    "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+                )
+                    .prop_map(|(item_id, timestamp, correlation_id)| {
+                        HoldCommand::Cancel {
+                            item_id,
+                            timestamp,
+                            correlation_id,
+                        }
+                    }),
+                (
+                    any::<ItemId>(),
+                    any::<ActorId>(),
+                    any::<i64>(),
+                    "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+                )
+                    .prop_map(|(item_id, patron_id, timestamp, correlation_id)| {
+                        HoldCommand::Fulfill {
+                            item_id,
+                            patron_id,
+                            timestamp,
+                            correlation_id,
+                        }
+                    }),
+            ]
+            .boxed()
+        }
+    }
+
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(1000))]
 
@@ -365,6 +692,301 @@ mod tests {
             let fine = calculate_overdue_fine(days, rate);
 
             prop_assert!(fine <= MAX_FINE_CENTS);
+        }
+
+        #[test]
+        fn checked_out_item_checkin_succeeds(
+            mut item in any::<Item>(),
+            mut patron in any::<Actor>(),
+            timestamp in any::<i64>(),
+            correlation_id in "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+        ) {
+            item.status = ItemStatus::CheckedOut;
+            patron.actor_type = ActorType::Patron;
+
+            let command = CheckInCommand {
+                item_id: item.id.clone(),
+                patron_id: patron.id.clone(),
+                timestamp,
+                correlation_id,
+            };
+
+            let result = ItemAggregate::process_checkin(&item, command);
+
+            let success = matches!(
+                result,
+                Ok(CirculationEvent::ItemReturned { .. })
+            );
+
+            prop_assert!(success);
+        }
+
+        #[test]
+        fn available_item_checkin_fails(
+            mut item in any::<Item>(),
+            mut patron in any::<Actor>(),
+            timestamp in any::<i64>(),
+            correlation_id in "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+        ) {
+            item.status = ItemStatus::Available;
+            patron.actor_type = ActorType::Patron;
+
+            let command = CheckInCommand {
+                item_id: item.id.clone(),
+                patron_id: patron.id.clone(),
+                timestamp,
+                correlation_id,
+            };
+
+            let result = ItemAggregate::process_checkin(&item, command);
+
+            prop_assert_eq!(result, Err(CheckoutError::ItemNotAvailable));
+        }
+
+        #[test]
+        fn checked_out_item_renew_succeeds(
+            mut item in any::<Item>(),
+            mut patron in any::<Actor>(),
+            timestamp in any::<i64>(),
+            correlation_id in "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+        ) {
+            item.status = ItemStatus::CheckedOut;
+            patron.actor_type = ActorType::Patron;
+
+            let command = RenewCommand {
+                item_id: item.id.clone(),
+                patron_id: patron.id.clone(),
+                timestamp,
+                correlation_id,
+            };
+
+            let result = ItemAggregate::process_renew(&item, command);
+
+            let success = matches!(
+                result,
+                Ok(CirculationEvent::ItemRenewed { .. })
+            );
+
+            prop_assert!(success);
+        }
+
+        #[test]
+        fn available_item_renew_fails(
+            mut item in any::<Item>(),
+            mut patron in any::<Actor>(),
+            timestamp in any::<i64>(),
+            correlation_id in "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+        ) {
+            item.status = ItemStatus::Available;
+            patron.actor_type = ActorType::Patron;
+
+            let command = RenewCommand {
+                item_id: item.id.clone(),
+                patron_id: patron.id.clone(),
+                timestamp,
+                correlation_id,
+            };
+
+            let result = ItemAggregate::process_renew(&item, command);
+
+            prop_assert_eq!(result, Err(CheckoutError::ItemNotAvailable));
+        }
+
+        #[test]
+        fn mark_lost_succeeds_for_any_item_status(
+            item in any::<Item>(),
+            timestamp in any::<i64>(),
+            correlation_id in "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+        ) {
+            let command = MarkLostCommand {
+                item_id: item.id.clone(),
+                timestamp,
+                correlation_id,
+            };
+
+            let result = ItemAggregate::process_mark_lost(&item, command);
+
+            let success = matches!(
+                result,
+                Ok(CirculationEvent::ItemLost { .. })
+            );
+
+            prop_assert!(success);
+        }
+
+        #[test]
+        fn mark_lost_fails_on_item_mismatch(
+            item in any::<Item>(),
+            timestamp in any::<i64>(),
+            correlation_id in "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+        ) {
+            let command = MarkLostCommand {
+                item_id: ItemId("different-item".into()),
+                timestamp,
+                correlation_id,
+            };
+
+            let result = ItemAggregate::process_mark_lost(&item, command);
+
+            prop_assert_eq!(result, Err(CheckoutError::ItemMismatch));
+        }
+
+        #[test]
+        fn place_hold_succeeds_for_available_item(
+            mut item in any::<Item>(),
+            mut patron in any::<Actor>(),
+            timestamp in any::<i64>(),
+            correlation_id in "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+        ) {
+            item.status = ItemStatus::Available;
+            patron.actor_type = ActorType::Patron;
+
+            let command = HoldCommand::Place {
+                item_id: item.id.clone(),
+                patron_id: patron.id.clone(),
+                timestamp,
+                correlation_id,
+            };
+
+            let result = ItemAggregate::process_hold(&item, &patron, command);
+
+            let success = matches!(
+                result,
+                Ok(CirculationEvent::HoldPlaced { .. })
+            );
+
+            prop_assert!(success);
+        }
+
+        #[test]
+        fn place_hold_fails_for_unavailable_item(
+            mut item in any::<Item>(),
+            mut patron in any::<Actor>(),
+            timestamp in any::<i64>(),
+            correlation_id in "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+        ) {
+            item.status = ItemStatus::CheckedOut;
+            patron.actor_type = ActorType::Patron;
+
+            let command = HoldCommand::Place {
+                item_id: item.id.clone(),
+                patron_id: patron.id.clone(),
+                timestamp,
+                correlation_id,
+            };
+
+            let result = ItemAggregate::process_hold(&item, &patron, command);
+
+            prop_assert_eq!(result, Err(HoldError::ItemNotOnHold));
+        }
+
+        #[test]
+        fn cancel_hold_succeeds_for_on_hold_item(
+            mut item in any::<Item>(),
+            timestamp in any::<i64>(),
+            correlation_id in "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+        ) {
+            item.status = ItemStatus::OnHoldShelf;
+
+            let command = HoldCommand::Cancel {
+                item_id: item.id.clone(),
+                timestamp,
+                correlation_id,
+            };
+
+            // Use a dummy patron since Cancel doesn't need patron details
+            let patron = Actor {
+                id: ActorId("dummy".into()),
+                actor_type: ActorType::Patron,
+                name: "Dummy".into(),
+                email: None,
+                status: ActorStatus::Active,
+            };
+
+            let result = ItemAggregate::process_hold(&item, &patron, command);
+
+            let success = matches!(
+                result,
+                Ok(CirculationEvent::HoldCancelled { .. })
+            );
+
+            prop_assert!(success);
+        }
+
+        #[test]
+        fn cancel_hold_fails_for_available_item(
+            mut item in any::<Item>(),
+            timestamp in any::<i64>(),
+            correlation_id in "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+        ) {
+            item.status = ItemStatus::Available;
+
+            let command = HoldCommand::Cancel {
+                item_id: item.id.clone(),
+                timestamp,
+                correlation_id,
+            };
+
+            let patron = Actor {
+                id: ActorId("dummy".into()),
+                actor_type: ActorType::Patron,
+                name: "Dummy".into(),
+                email: None,
+                status: ActorStatus::Active,
+            };
+
+            let result = ItemAggregate::process_hold(&item, &patron, command);
+
+            prop_assert_eq!(result, Err(HoldError::ItemNotOnHold));
+        }
+
+        #[test]
+        fn fulfill_hold_succeeds_for_on_hold_item(
+            mut item in any::<Item>(),
+            mut patron in any::<Actor>(),
+            timestamp in any::<i64>(),
+            correlation_id in "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+        ) {
+            item.status = ItemStatus::OnHoldShelf;
+            patron.actor_type = ActorType::Patron;
+
+            let command = HoldCommand::Fulfill {
+                item_id: item.id.clone(),
+                patron_id: patron.id.clone(),
+                timestamp,
+                correlation_id,
+            };
+
+            let result = ItemAggregate::process_hold(&item, &patron, command);
+
+            let success = matches!(
+                result,
+                Ok(CirculationEvent::ItemCheckedOut { .. })
+            );
+
+            prop_assert!(success);
+        }
+
+        #[test]
+        fn fulfill_hold_fails_for_available_item(
+            mut item in any::<Item>(),
+            mut patron in any::<Actor>(),
+            timestamp in any::<i64>(),
+            correlation_id in "[a-z0-9_-]{1,24}".prop_map(|value| value.to_string()),
+        ) {
+            item.status = ItemStatus::Available;
+            patron.actor_type = ActorType::Patron;
+
+            let command = HoldCommand::Fulfill {
+                item_id: item.id.clone(),
+                patron_id: patron.id.clone(),
+                timestamp,
+                correlation_id,
+            };
+
+            let result = ItemAggregate::process_hold(&item, &patron, command);
+
+            prop_assert_eq!(result, Err(HoldError::ItemNotOnHold));
         }
     }
 

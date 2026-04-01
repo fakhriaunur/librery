@@ -103,6 +103,21 @@ pub enum CirculationEvent {
     },
 }
 
+impl CirculationEvent {
+    /// Returns the timestamp of the event.
+    pub fn timestamp(&self) -> i64 {
+        match self {
+            CirculationEvent::ItemCheckedOut { timestamp, .. }
+            | CirculationEvent::ItemReturned { timestamp, .. }
+            | CirculationEvent::ItemRenewed { timestamp, .. }
+            | CirculationEvent::HoldPlaced { timestamp, .. }
+            | CirculationEvent::HoldCancelled { timestamp, .. }
+            | CirculationEvent::HoldFulfilled { timestamp, .. }
+            | CirculationEvent::ItemLost { timestamp, .. } => *timestamp,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CheckoutError {
     ItemNotAvailable,

@@ -1,0 +1,24 @@
+{
+  "active_plan": "/home/pahri/workspace/work/librery/.sisyphus/plans/librery-phase1.5-critical-api-gaps.md",
+  "started_at": "2026-04-01T12:49:03.747Z",
+  "session_ids": [
+    "ses_2ba64a891ffenC8vGfSYUZ9ve7",
+    "ses_2b6e77dd6ffe33sZUIhyW1Euq4",
+    "ses_2b6dae063ffeaTdVUD7jF7Z775",
+    "ses_2b6c892d8ffeWouU9klvLV6VFR",
+    "ses_2b6098f82ffe9g7dYSNAxxPnL7"
+  ],
+  "plan_name": "librery-phase1.5-critical-api-gaps",
+  "agent": "atlas",
+  "task_sessions": {
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "Plan Compliance Audit",
+      "session_id": "ses_2b6098f82ffe9g7dYSNAxxPnL7",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-01T16:53:53.768Z"
+    }
+  }
+}

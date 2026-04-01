@@ -20,6 +20,8 @@ use utoipa_swagger_ui::SwaggerUi;
 
 use librery_shell::api::auth::login::{login, LoginRequest, LoginResponse};
 use librery_shell::api::auth::login::__path_login;
+use librery_shell::api::auth::logout::{logout, LogoutResponse};
+use librery_shell::api::auth::logout::__path_logout;
 use librery_shell::patron_credentials_repository::SqlitePatronCredentialsRepository;
 use librery_shell::search::SearchIndex;
 use librery_shell::AppState;
@@ -56,7 +58,7 @@ struct SearchResponse {
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(checkout, search_items, login),
+    paths(checkout, search_items, login, logout),
     components(schemas(
         CheckoutRequest,
         SearchParams,
@@ -64,7 +66,8 @@ struct SearchResponse {
         SearchResultResponse,
         SearchResponse,
         LoginRequest,
-        LoginResponse
+        LoginResponse,
+        LogoutResponse
     )),
     tags((name = "api", description = "Library API"))
 )]
@@ -88,6 +91,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .route("/api/v1/checkout", post(checkout))
         .route("/api/v1/search", get(search_items))
         .route("/api/v1/auth/login", post(login))
+        .route("/api/v1/auth/logout", post(logout))
         .merge(SwaggerUi::new("/api/docs").url("/api/openapi.json", ApiDoc::openapi()))
         .layer(axum::middleware::from_fn(add_alt_svc))
         .with_state(state);

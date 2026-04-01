@@ -3,6 +3,7 @@ use librery_core::{CirculationEvent, CirculationRepository, ActorId, ItemId};
 use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
 
 pub mod api;
+pub mod middleware;
 pub mod search;
 pub mod patron_credentials_repository;
 

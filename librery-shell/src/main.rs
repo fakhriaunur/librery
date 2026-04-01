@@ -22,6 +22,7 @@ use librery_shell::api::auth::login::{login, LoginRequest, LoginResponse};
 use librery_shell::api::auth::login::__path_login;
 use librery_shell::api::auth::logout::{logout, LogoutResponse};
 use librery_shell::api::auth::logout::__path_logout;
+use librery_shell::middleware::auth::auth_middleware;
 use librery_shell::patron_credentials_repository::SqlitePatronCredentialsRepository;
 use librery_shell::search::SearchIndex;
 use librery_shell::AppState;
@@ -87,9 +88,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         biscuit_keypair,
     };
 
-    let app = Router::new()
+    let protected_routes = Router::new()
         .route("/api/v1/checkout", post(checkout))
         .route("/api/v1/search", get(search_items))
+        .layer(axum::middleware::from_fn(auth_middleware));
+
+    let app = Router::new()
+        .merge(protected_routes)
         .route("/api/v1/auth/login", post(login))
         .route("/api/v1/auth/logout", post(logout))
         .merge(SwaggerUi::new("/api/docs").url("/api/openapi.json", ApiDoc::openapi()))

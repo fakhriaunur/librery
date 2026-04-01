@@ -41,7 +41,7 @@ impl SqliteCirculationRepository {
 #[async_trait]
 impl CirculationRepository for SqliteCirculationRepository {
     async fn append_event(&self, event: &CirculationEvent) -> sqlx::Result<i64> {
-        let (event_type, item_id, patron_id, timestamp, correlation_id) = match event {
+        let (event_type, item_id, patron_id, timestamp, correlation_id): (&str, String, String, i64, String) = match event {
             CirculationEvent::ItemCheckedOut {
                 item_id,
                 patron_id,
@@ -49,10 +49,10 @@ impl CirculationRepository for SqliteCirculationRepository {
                 correlation_id,
             } => (
                 "ItemCheckedOut",
-                &item_id.0,
-                &patron_id.0,
+                item_id.0.clone(),
+                patron_id.0.clone(),
                 *timestamp,
-                correlation_id,
+                correlation_id.clone(),
             ),
             CirculationEvent::ItemReturned {
                 item_id,
@@ -61,10 +61,10 @@ impl CirculationRepository for SqliteCirculationRepository {
                 correlation_id,
             } => (
                 "ItemReturned",
-                &item_id.0,
-                &patron_id.0,
+                item_id.0.clone(),
+                patron_id.0.clone(),
                 *timestamp,
-                correlation_id,
+                correlation_id.clone(),
             ),
             CirculationEvent::ItemRenewed {
                 item_id,
@@ -73,10 +73,10 @@ impl CirculationRepository for SqliteCirculationRepository {
                 correlation_id,
             } => (
                 "ItemRenewed",
-                &item_id.0,
-                &patron_id.0,
+                item_id.0.clone(),
+                patron_id.0.clone(),
                 *timestamp,
-                correlation_id,
+                correlation_id.clone(),
             ),
             CirculationEvent::HoldPlaced {
                 item_id,
@@ -85,10 +85,44 @@ impl CirculationRepository for SqliteCirculationRepository {
                 correlation_id,
             } => (
                 "HoldPlaced",
-                &item_id.0,
-                &patron_id.0,
+                item_id.0.clone(),
+                patron_id.0.clone(),
                 *timestamp,
+                correlation_id.clone(),
+            ),
+            CirculationEvent::HoldCancelled {
+                item_id,
+                timestamp,
                 correlation_id,
+            } => (
+                "HoldCancelled",
+                item_id.0.clone(),
+                String::new(),
+                *timestamp,
+                correlation_id.clone(),
+            ),
+            CirculationEvent::HoldFulfilled {
+                item_id,
+                patron_id,
+                timestamp,
+                correlation_id,
+            } => (
+                "HoldFulfilled",
+                item_id.0.clone(),
+                patron_id.0.clone(),
+                *timestamp,
+                correlation_id.clone(),
+            ),
+            CirculationEvent::ItemLost {
+                item_id,
+                timestamp,
+                correlation_id,
+            } => (
+                "ItemLost",
+                item_id.0.clone(),
+                String::new(),
+                *timestamp,
+                correlation_id.clone(),
             ),
         };
 

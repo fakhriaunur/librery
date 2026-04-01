@@ -5,7 +5,7 @@ use axum::{
     http::{header, HeaderValue, Request, Response, StatusCode},
     response::IntoResponse,
     routing::{get, post},
-    Json, Router,
+    Extension, Json, Router,
 };
 use biscuit_auth::KeyPair;
 use h3_axum::serve_h3_with_axum;
@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 
+use librery_core::{Actor, ActorId, ActorStatus, ActorType, CheckoutCommand, ItemAggregate, ItemId};
 use librery_shell::api::auth::login::{login, LoginRequest, LoginResponse};
 use librery_shell::api::auth::login::__path_login;
 use librery_shell::api::auth::logout::{logout, LogoutResponse};
@@ -27,7 +28,7 @@ use librery_shell::api::catalog::__path_get_catalog_detail;
 use librery_shell::api::patrons::{get_patron_loans, get_patron_holds, LoanResponse, LoansResponse, HoldResponse, HoldsResponse};
 use librery_shell::api::patrons::__path_get_patron_loans;
 use librery_shell::api::patrons::__path_get_patron_holds;
-use librery_shell::middleware::auth::auth_middleware;
+use librery_shell::middleware::auth::{auth_middleware, AuthenticatedPatron};
 use librery_shell::patron_credentials_repository::SqlitePatronCredentialsRepository;
 use librery_shell::bib_repository::SqliteBibliographicRecordRepository;
 use librery_shell::item_repository::SqliteItemRepository;
@@ -38,7 +39,11 @@ use librery_shell::AppState;
 #[derive(Deserialize, Serialize, ToSchema)]
 struct CheckoutRequest {
     item_id: String,
-    patron_id: String,
+}
+
+#[derive(Serialize, ToSchema)]
+struct CheckoutResponse {
+    loan_id: String,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -73,6 +78,7 @@ struct SearchResponse {
     paths(checkout, search_items, login, logout, get_patron_loans, get_patron_holds, get_catalog_detail),
     components(schemas(
         CheckoutRequest,
+        CheckoutResponse,
         SearchParams,
         StatusResponse,
         SearchResultResponse,
@@ -163,14 +169,62 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     post,
     path = "/api/v1/checkout",
     request_body = CheckoutRequest,
-    responses((status = OK, body = StatusResponse)),
+    responses(
+        (status = OK, body = CheckoutResponse),
+        (status = NOT_FOUND, description = "Item not found"),
+        (status = BAD_REQUEST, description = "Checkout failed (item unavailable, patron blocked, etc.)"),
+        (status = INTERNAL_SERVER_ERROR, description = "Server error")
+    ),
     tag = "api"
 )]
 async fn checkout(
-    State(_state): State<AppState>,
-    Json(_body): Json<CheckoutRequest>,
-) -> impl IntoResponse {
-    (StatusCode::OK, Json(StatusResponse { status: "ok".into() }))
+    State(state): State<AppState>,
+    Extension(patron): Extension<AuthenticatedPatron>,
+    Json(req): Json<CheckoutRequest>,
+) -> Result<Json<CheckoutResponse>, StatusCode> {
+    let item_id = ItemId(req.item_id.clone());
+    let item = state
+        .item_repo
+        .find_by_id(&item_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    let patron_actor = Actor {
+        id: ActorId(patron.patron_id.clone()),
+        actor_type: ActorType::Patron,
+        name: patron.patron_id.clone(),
+        email: None,
+        status: ActorStatus::Active,
+    };
+
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    let correlation_id = format!("checkout-{}-{}", req.item_id, timestamp);
+
+    let command = CheckoutCommand {
+        item_id: item_id.clone(),
+        patron_id: patron_actor.id.clone(),
+        timestamp,
+        correlation_id: correlation_id.clone(),
+    };
+
+    let events = ItemAggregate::process(&item, &patron_actor, command)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    for event in &events {
+        state
+            .circulation_repo
+            .append_event(event)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    }
+
+    Ok(Json(CheckoutResponse {
+        loan_id: correlation_id,
+    }))
 }
 
 #[utoipa::path(

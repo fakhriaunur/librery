@@ -12,6 +12,7 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "tim
 utoipa = { workspace = true }
 utoipa-swagger-ui = { workspace = true, features = ["axum"] }
 librery-core = { path = "../librery-core" }
+tantivy = { workspace = true }
 bytes = "1"
 h3 = "0.0.8"
 h3-quinn = "0.0.10"

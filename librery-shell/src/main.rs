@@ -1,10 +1,10 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use axum::{
-    extract::State,
+    extract::{Query, State},
     http::{header, HeaderValue, Request, Response, StatusCode},
     response::IntoResponse,
-    routing::post,
+    routing::{get, post},
     Json, Router,
 };
 use h3_axum::serve_h3_with_axum;
@@ -17,8 +17,12 @@ use serde::{Deserialize, Serialize};
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 
+use librery_shell::search::SearchIndex;
+
 #[derive(Clone)]
-struct AppState;
+struct AppState {
+    search_index: Arc<SearchIndex>,
+}
 
 #[derive(Deserialize, Serialize, ToSchema)]
 struct CheckoutRequest {
@@ -26,24 +30,60 @@ struct CheckoutRequest {
     patron_id: String,
 }
 
+#[derive(Deserialize, ToSchema)]
+struct SearchParams {
+    q: String,
+}
+
 #[derive(Serialize, ToSchema)]
 struct StatusResponse {
     status: String,
 }
 
+#[derive(Serialize, ToSchema)]
+struct SearchResultResponse {
+    item_id: String,
+    patron_id: String,
+    event_type: String,
+    timestamp: i64,
+    indexed_at: i64,
+}
+
+#[derive(Serialize, ToSchema)]
+struct SearchResponse {
+    results: Vec<SearchResultResponse>,
+}
+
 #[derive(OpenApi)]
-#[openapi(paths(checkout), components(schemas(CheckoutRequest, StatusResponse)), tags((name = "api", description = "Library API")))]
+#[openapi(
+    paths(checkout, search_items),
+    components(schemas(
+        CheckoutRequest,
+        SearchParams,
+        StatusResponse,
+        SearchResultResponse,
+        SearchResponse
+    )),
+    tags((name = "api", description = "Library API"))
+)]
 struct ApiDoc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
+    let search_index = Arc::new(SearchIndex::new()?);
+    
+    let state = AppState {
+        search_index,
+    };
+
     let app = Router::new()
         .route("/api/v1/checkout", post(checkout))
+        .route("/api/v1/search", get(search_items))
         .merge(SwaggerUi::new("/api/docs").url("/api/openapi.json", ApiDoc::openapi()))
         .layer(axum::middleware::from_fn(add_alt_svc))
-        .with_state(AppState);
+        .with_state(state);
 
     let addr: SocketAddr = "0.0.0.0:8080".parse()?;
     let (endpoint, tcp_listener) = setup_transports(addr).await?;
@@ -89,6 +129,45 @@ async fn checkout(
     Json(_body): Json<CheckoutRequest>,
 ) -> impl IntoResponse {
     (StatusCode::OK, Json(StatusResponse { status: "ok".into() }))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/search",
+    params(("q" = String, Query, description = "Search query")),
+    responses((status = OK, body = SearchResponse)),
+    tag = "api"
+)]
+async fn search_items(
+    Query(params): Query<SearchParams>,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let indexed_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    
+    match state.search_index.search(&params.q) {
+        Ok(results) => {
+            let response = SearchResponse {
+                results: results
+                    .into_iter()
+                    .map(|r| SearchResultResponse {
+                        item_id: r.item_id,
+                        patron_id: r.patron_id,
+                        event_type: r.event_type,
+                        timestamp: r.timestamp,
+                        indexed_at,
+                    })
+                    .collect(),
+            };
+            (StatusCode::OK, Json(response))
+        }
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(SearchResponse { results: vec![] }),
+        ),
+    }
 }
 
 async fn run_h3_connection(

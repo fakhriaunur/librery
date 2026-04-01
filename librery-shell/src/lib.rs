@@ -2,6 +2,8 @@ use async_trait::async_trait;
 use librery_core::{CirculationEvent, CirculationRepository, ActorId, ItemId};
 use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
 
+pub mod search;
+
 pub struct SqliteCirculationRepository {
     pool: SqlitePool,
 }
@@ -174,6 +176,72 @@ impl CirculationRepository for SqliteCirculationRepository {
                     "HoldPlaced" => CirculationEvent::HoldPlaced {
                         item_id,
                         patron_id,
+                        timestamp,
+                        correlation_id,
+                    },
+                    _ => CirculationEvent::ItemCheckedOut {
+                        item_id,
+                        patron_id,
+                        timestamp,
+                        correlation_id,
+                    },
+                })
+            })
+            .collect()
+    }
+
+    async fn get_events_since(&self, since: i64) -> sqlx::Result<Vec<CirculationEvent>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT event_type, item_id, patron_id, timestamp, correlation_id
+            FROM circulation_events
+            WHERE timestamp > ?
+            ORDER BY timestamp ASC
+            "#,
+        )
+        .bind(since)
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| {
+                let item_id = ItemId(row.try_get::<String, _>("item_id")?);
+                let patron_id = ActorId(row.try_get::<String, _>("patron_id")?);
+                let timestamp = row.try_get("timestamp")?;
+                let correlation_id = row.try_get("correlation_id")?;
+
+                Ok(match row.try_get::<String, _>("event_type")?.as_str() {
+                    "ItemReturned" => CirculationEvent::ItemReturned {
+                        item_id,
+                        patron_id,
+                        timestamp,
+                        correlation_id,
+                    },
+                    "ItemRenewed" => CirculationEvent::ItemRenewed {
+                        item_id,
+                        patron_id,
+                        timestamp,
+                        correlation_id,
+                    },
+                    "HoldPlaced" => CirculationEvent::HoldPlaced {
+                        item_id,
+                        patron_id,
+                        timestamp,
+                        correlation_id,
+                    },
+                    "HoldCancelled" => CirculationEvent::HoldCancelled {
+                        item_id,
+                        timestamp,
+                        correlation_id,
+                    },
+                    "HoldFulfilled" => CirculationEvent::HoldFulfilled {
+                        item_id,
+                        patron_id,
+                        timestamp,
+                        correlation_id,
+                    },
+                    "ItemLost" => CirculationEvent::ItemLost {
+                        item_id,
                         timestamp,
                         correlation_id,
                     },

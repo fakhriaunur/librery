@@ -1,7 +1,8 @@
+use librery_core::domain::BibliographicRecord;
 use librery_core::CirculationEvent;
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
-use tantivy::schema::{Schema, Value, INDEXED, STORED, STRING};
+use tantivy::schema::{Schema, Value, INDEXED, STORED, STRING, TEXT};
 use tantivy::{doc, Index, IndexWriter, TantivyDocument};
 
 /// Embedded Tantivy search index for CQRS read model.
@@ -11,11 +12,18 @@ use tantivy::{doc, Index, IndexWriter, TantivyDocument};
 pub struct SearchIndex {
     index: Index,
     schema: Schema,
+    // Circulation event fields
     item_id_field: tantivy::schema::Field,
     patron_id_field: tantivy::schema::Field,
     event_type_field: tantivy::schema::Field,
     correlation_id_field: tantivy::schema::Field,
     timestamp_field: tantivy::schema::Field,
+    // Bibliographic record fields
+    title_field: tantivy::schema::Field,
+    author_field: tantivy::schema::Field,
+    isbn_field: tantivy::schema::Field,
+    publisher_field: tantivy::schema::Field,
+    barcode_field: tantivy::schema::Field,
 }
 
 impl SearchIndex {
@@ -27,6 +35,11 @@ impl SearchIndex {
         let event_type_field = schema_builder.add_text_field("event_type", STRING | STORED);
         let correlation_id_field = schema_builder.add_text_field("correlation_id", STRING | STORED);
         let timestamp_field = schema_builder.add_i64_field("timestamp", INDEXED | STORED);
+        let title_field = schema_builder.add_text_field("title", TEXT | STORED);
+        let author_field = schema_builder.add_text_field("author", TEXT | STORED);
+        let isbn_field = schema_builder.add_text_field("isbn", STRING | STORED);
+        let publisher_field = schema_builder.add_text_field("publisher", TEXT | STORED);
+        let barcode_field = schema_builder.add_text_field("barcode", STRING | STORED);
         let schema = schema_builder.build();
 
         let index = Index::create_in_ram(schema.clone());
@@ -39,6 +52,11 @@ impl SearchIndex {
             event_type_field,
             correlation_id_field,
             timestamp_field,
+            title_field,
+            author_field,
+            isbn_field,
+            publisher_field,
+            barcode_field,
         })
     }
 
@@ -50,6 +68,28 @@ impl SearchIndex {
         let mut writer: IndexWriter = self.index.writer(50_000_000)?;
 
         let doc = self.event_to_document(event)?;
+        writer.add_document(doc)?;
+        writer.commit()?;
+
+        Ok(())
+    }
+
+    /// Indexes a bibliographic record for catalog search.
+    ///
+    /// The document becomes searchable after the next commit.
+    pub fn index_document(&self, record: &BibliographicRecord) -> tantivy::Result<()> {
+        let mut writer: IndexWriter = self.index.writer(50_000_000)?;
+
+        let mut doc = TantivyDocument::new();
+        doc.add_text(self.title_field, &record.title);
+        doc.add_text(self.author_field, &record.author);
+        if let Some(ref isbn) = record.isbn {
+            doc.add_text(self.isbn_field, isbn);
+        }
+        if let Some(ref publisher) = record.publisher {
+            doc.add_text(self.publisher_field, publisher);
+        }
+
         writer.add_document(doc)?;
         writer.commit()?;
 
@@ -181,6 +221,11 @@ impl SearchIndex {
                 self.patron_id_field,
                 self.event_type_field,
                 self.correlation_id_field,
+                self.title_field,
+                self.author_field,
+                self.isbn_field,
+                self.publisher_field,
+                self.barcode_field,
             ],
         );
 

@@ -15,4 +15,5 @@ ratatui = "0.28"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "sqlite"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "time"] }
 utoipa = "5"
+tantivy = "0.22"
 utoipa-swagger-ui = "9"

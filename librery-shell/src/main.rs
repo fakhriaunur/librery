@@ -28,10 +28,13 @@ use librery_shell::api::catalog::__path_get_catalog_detail;
 use librery_shell::api::patrons::{get_patron_loans, get_patron_holds, LoanResponse, LoansResponse, HoldResponse, HoldsResponse};
 use librery_shell::api::patrons::__path_get_patron_loans;
 use librery_shell::api::patrons::__path_get_patron_holds;
+use librery_shell::api::patrons::me::{get_patron_me, PatronProfileResponse};
+use librery_shell::api::patrons::me::__path_get_patron_me;
 use librery_shell::middleware::auth::{auth_middleware, AuthenticatedPatron};
 use librery_shell::patron_credentials_repository::SqlitePatronCredentialsRepository;
 use librery_shell::bib_repository::SqliteBibliographicRecordRepository;
 use librery_shell::item_repository::SqliteItemRepository;
+use librery_shell::actor_repository::SqliteActorRepository;
 use librery_shell::search::SearchIndex;
 use librery_shell::SqliteCirculationRepository;
 use librery_shell::AppState;
@@ -75,7 +78,7 @@ struct SearchResponse {
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(checkout, search_items, login, logout, get_patron_loans, get_patron_holds, get_catalog_detail),
+    paths(checkout, search_items, login, logout, get_patron_loans, get_patron_holds, get_catalog_detail, get_patron_me),
     components(schemas(
         CheckoutRequest,
         CheckoutResponse,
@@ -91,7 +94,8 @@ struct SearchResponse {
         HoldResponse,
         HoldsResponse,
         CatalogDetailResponse,
-        ItemAvailability
+        ItemAvailability,
+        PatronProfileResponse
     )),
     tags((name = "api", description = "Library API"))
 )]
@@ -107,6 +111,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let biscuit_keypair = Arc::new(KeyPair::new());
     let bib_repo = Arc::new(SqliteBibliographicRecordRepository::connect("sqlite:librery.db").await?);
     let item_repo = Arc::new(SqliteItemRepository::connect("sqlite:librery.db").await?);
+    let actor_repo = Arc::new(SqliteActorRepository::connect("sqlite:librery.db").await?);
 
     let state = AppState {
         search_index,
@@ -115,11 +120,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         biscuit_keypair,
         bib_repo,
         item_repo,
+        actor_repo,
     };
 
     let protected_routes = Router::new()
         .route("/api/v1/checkout", post(checkout))
         .route("/api/v1/search", get(search_items))
+        .route("/api/v1/patrons/me", get(get_patron_me))
         .route("/api/v1/patrons/{id}/loans", get(get_patron_loans))
         .route("/api/v1/patrons/{id}/holds", get(get_patron_holds))
         .route("/api/v1/catalog/{id}", get(get_catalog_detail))

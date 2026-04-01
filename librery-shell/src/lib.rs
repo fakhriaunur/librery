@@ -8,6 +8,7 @@ pub mod search;
 pub mod patron_credentials_repository;
 pub mod item_repository;
 pub mod bib_repository;
+pub mod actor_repository;
 
 use std::sync::Arc;
 
@@ -17,6 +18,7 @@ use librery_core::BibliographicRecordRepository;
 use librery_core::ItemRepository;
 
 use crate::search::SearchIndex;
+use crate::actor_repository::SqliteActorRepository;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -26,6 +28,7 @@ pub struct AppState {
     pub biscuit_keypair: Arc<KeyPair>,
     pub bib_repo: Arc<dyn BibliographicRecordRepository>,
     pub item_repo: Arc<dyn ItemRepository>,
+    pub actor_repo: Arc<SqliteActorRepository>,
 }
 
 pub struct SqliteCirculationRepository {

@@ -7,6 +7,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use biscuit_auth::KeyPair;
 use h3_axum::serve_h3_with_axum;
 use h3_quinn::Connection as H3QuinnConnection;
 use quinn::{Endpoint, ServerConfig, TransportConfig};
@@ -17,12 +18,11 @@ use serde::{Deserialize, Serialize};
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 
+use librery_shell::api::auth::login::{login, LoginRequest, LoginResponse};
+use librery_shell::api::auth::login::__path_login;
+use librery_shell::patron_credentials_repository::SqlitePatronCredentialsRepository;
 use librery_shell::search::SearchIndex;
-
-#[derive(Clone)]
-struct AppState {
-    search_index: Arc<SearchIndex>,
-}
+use librery_shell::AppState;
 
 #[derive(Deserialize, Serialize, ToSchema)]
 struct CheckoutRequest {
@@ -56,13 +56,15 @@ struct SearchResponse {
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(checkout, search_items),
+    paths(checkout, search_items, login),
     components(schemas(
         CheckoutRequest,
         SearchParams,
         StatusResponse,
         SearchResultResponse,
-        SearchResponse
+        SearchResponse,
+        LoginRequest,
+        LoginResponse
     )),
     tags((name = "api", description = "Library API"))
 )]
@@ -73,14 +75,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let search_index = Arc::new(SearchIndex::new()?);
-    
+    let credentials_repo = Arc::new(SqlitePatronCredentialsRepository::connect("sqlite:librery.db").await?);
+    let biscuit_keypair = Arc::new(KeyPair::new());
+
     let state = AppState {
         search_index,
+        credentials_repo,
+        biscuit_keypair,
     };
 
     let app = Router::new()
         .route("/api/v1/checkout", post(checkout))
         .route("/api/v1/search", get(search_items))
+        .route("/api/v1/auth/login", post(login))
         .merge(SwaggerUi::new("/api/docs").url("/api/openapi.json", ApiDoc::openapi()))
         .layer(axum::middleware::from_fn(add_alt_svc))
         .with_state(state);

@@ -2,7 +2,23 @@ use async_trait::async_trait;
 use librery_core::{CirculationEvent, CirculationRepository, ActorId, ItemId};
 use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
 
+pub mod api;
 pub mod search;
+pub mod patron_credentials_repository;
+
+use std::sync::Arc;
+
+use biscuit_auth::KeyPair;
+use librery_core::PatronCredentialsRepository;
+
+use crate::search::SearchIndex;
+
+#[derive(Clone)]
+pub struct AppState {
+    pub search_index: Arc<SearchIndex>,
+    pub credentials_repo: Arc<dyn PatronCredentialsRepository>,
+    pub biscuit_keypair: Arc<KeyPair>,
+}
 
 pub struct SqliteCirculationRepository {
     pool: SqlitePool,

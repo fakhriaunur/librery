@@ -7,11 +7,14 @@ pub mod middleware;
 pub mod search;
 pub mod patron_credentials_repository;
 pub mod item_repository;
+pub mod bib_repository;
 
 use std::sync::Arc;
 
 use biscuit_auth::KeyPair;
 use librery_core::PatronCredentialsRepository;
+use librery_core::BibliographicRecordRepository;
+use librery_core::ItemRepository;
 
 use crate::search::SearchIndex;
 
@@ -21,6 +24,8 @@ pub struct AppState {
     pub credentials_repo: Arc<dyn PatronCredentialsRepository>,
     pub circulation_repo: Arc<dyn CirculationRepository>,
     pub biscuit_keypair: Arc<KeyPair>,
+    pub bib_repo: Arc<dyn BibliographicRecordRepository>,
+    pub item_repo: Arc<dyn ItemRepository>,
 }
 
 pub struct SqliteCirculationRepository {

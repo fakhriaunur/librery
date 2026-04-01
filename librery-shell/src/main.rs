@@ -22,11 +22,15 @@ use librery_shell::api::auth::login::{login, LoginRequest, LoginResponse};
 use librery_shell::api::auth::login::__path_login;
 use librery_shell::api::auth::logout::{logout, LogoutResponse};
 use librery_shell::api::auth::logout::__path_logout;
+use librery_shell::api::catalog::{get_catalog_detail, CatalogDetailResponse, ItemAvailability};
+use librery_shell::api::catalog::__path_get_catalog_detail;
 use librery_shell::api::patrons::{get_patron_loans, get_patron_holds, LoanResponse, LoansResponse, HoldResponse, HoldsResponse};
 use librery_shell::api::patrons::__path_get_patron_loans;
 use librery_shell::api::patrons::__path_get_patron_holds;
 use librery_shell::middleware::auth::auth_middleware;
 use librery_shell::patron_credentials_repository::SqlitePatronCredentialsRepository;
+use librery_shell::bib_repository::SqliteBibliographicRecordRepository;
+use librery_shell::item_repository::SqliteItemRepository;
 use librery_shell::search::SearchIndex;
 use librery_shell::SqliteCirculationRepository;
 use librery_shell::AppState;
@@ -66,7 +70,7 @@ struct SearchResponse {
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(checkout, search_items, login, logout, get_patron_loans, get_patron_holds),
+    paths(checkout, search_items, login, logout, get_patron_loans, get_patron_holds, get_catalog_detail),
     components(schemas(
         CheckoutRequest,
         SearchParams,
@@ -79,7 +83,9 @@ struct SearchResponse {
         LoanResponse,
         LoansResponse,
         HoldResponse,
-        HoldsResponse
+        HoldsResponse,
+        CatalogDetailResponse,
+        ItemAvailability
     )),
     tags((name = "api", description = "Library API"))
 )]
@@ -93,12 +99,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let credentials_repo = Arc::new(SqlitePatronCredentialsRepository::connect("sqlite:librery.db").await?);
     let circulation_repo = Arc::new(SqliteCirculationRepository::connect("sqlite:librery.db").await?);
     let biscuit_keypair = Arc::new(KeyPair::new());
+    let bib_repo = Arc::new(SqliteBibliographicRecordRepository::connect("sqlite:librery.db").await?);
+    let item_repo = Arc::new(SqliteItemRepository::connect("sqlite:librery.db").await?);
 
     let state = AppState {
         search_index,
         credentials_repo,
         circulation_repo,
         biscuit_keypair,
+        bib_repo,
+        item_repo,
     };
 
     let protected_routes = Router::new()
@@ -106,6 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .route("/api/v1/search", get(search_items))
         .route("/api/v1/patrons/{id}/loans", get(get_patron_loans))
         .route("/api/v1/patrons/{id}/holds", get(get_patron_holds))
+        .route("/api/v1/catalog/{id}", get(get_catalog_detail))
         .layer(axum::middleware::from_fn(auth_middleware));
 
     let app = Router::new()

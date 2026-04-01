@@ -3,7 +3,7 @@ pub mod domain;
 use async_trait::async_trait;
 
 pub use domain::circulation::{CheckoutCommand, CheckoutError, CirculationEvent, ItemAggregate};
-pub use domain::ids::{ActorId, BranchId, ItemId, LoanId};
+pub use domain::ids::{ActorId, BibRecordId, BranchId, ItemId, LoanId};
 pub use domain::patron_credentials::PatronCredentials;
 pub use domain::BibliographicRecord;
 pub use domain::{Actor, ActorStatus, ActorType, Item, ItemStatus};
@@ -35,4 +35,11 @@ pub trait ItemRepository: Send + Sync {
     async fn find_all(&self) -> sqlx::Result<Vec<Item>>;
 
     async fn find_modified_since(&self, since: i64) -> sqlx::Result<Vec<Item>>;
+}
+
+#[async_trait]
+pub trait BibliographicRecordRepository: Send + Sync {
+    async fn find_by_id(&self, id: &BibRecordId) -> sqlx::Result<Option<BibliographicRecord>>;
+
+    async fn find_all(&self) -> sqlx::Result<Vec<BibliographicRecord>>;
 }

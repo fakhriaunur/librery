@@ -9,3 +9,6 @@ pub struct BranchId(pub String);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct LoanId(pub String);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct BibRecordId(pub String);
